@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="10dp">
+
+    <ImageView
+        android:id="@+id/img_large_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/icon_push_office" />
+
+    <TextView
+        android:id="@+id/txv_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_alignTop="@id/img_large_icon"
+        android:layout_marginTop="5dp"
+        tools:text="16:04" />
+
+    <TextView
+        android:id="@+id/txv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@id/img_large_icon"
+        android:layout_marginLeft="15dp"
+        android:layout_marginTop="5dp"
+        android:layout_toLeftOf="@id/txv_time"
+        android:layout_toRightOf="@id/img_large_icon"
+        android:ellipsize="end"
+        android:maxLines="1"
+        tools:text="这是标题" />
+
+    <TextView
+        android:id="@+id/txv_content"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@id/img_large_icon"
+        android:layout_marginBottom="5dp"
+        android:layout_marginLeft="15dp"
+        android:layout_toLeftOf="@id/txv_time"
+        android:layout_toRightOf="@id/img_large_icon"
+        android:ellipsize="end"
+        android:maxLines="1"
+        tools:text="这是内容" />
+
+
+</RelativeLayout>

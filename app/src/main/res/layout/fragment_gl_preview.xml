@@ -1,0 +1,47 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.demo.demos.fragments.GLPreviewFragment">
+
+    <android.opengl.GLSurfaceView
+        android:id="@+id/glSurfaceView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnCamera"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="切换相机" />
+
+            <Button
+                android:id="@+id/btnColorFilter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="切换滤镜" />
+            <Button
+                android:id="@+id/btnColorFilter2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="切换滤镜2D" />
+
+            <Button
+                android:id="@+id/btnPhoto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="拍照" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+</RelativeLayout>

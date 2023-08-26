@@ -1,0 +1,220 @@
+#version 300 es
+precision lowp float;
+
+in vec2 v_texCoord;
+out vec4 outColor;
+uniform sampler2D s_texture;
+uniform sampler2D textureLUT;
+//uniform sampler3D tex3DLUT;
+uniform sampler2D tex2DLUT;
+uniform float lut_qsz;
+uniform float lut_size;
+uniform float sizeBackDiv;
+uniform float allSizeDiv;
+
+
+uniform int colorFlag;// 滤镜类型
+uniform int sizeFlag; // cube size的平方根
+uniform int lookupDimension; // 滤镜类型
+
+//rgb转hsl
+vec3 rgb2hsl(vec3 color){
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(color.bg, K.wz), vec4(color.gb, K.xy), step(color.b, color.g));
+    vec4 q = mix(vec4(p.xyw, color.r), vec4(color.r, p.yzx), step(p.x, color.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+//hsl转rgb
+vec3 hsl2rgb(vec3 color){
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(color.xxx + K.xyz) * 6.0 - K.www);
+    return color.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), color.y);
+}
+
+//灰度
+void grey(inout vec4 color){
+    float weightMean = color.r * 0.3 + color.g * 0.59 + color.b * 0.11;
+    color.r = color.g = color.b = weightMean;
+}
+
+//黑白
+void blackAndWhite(inout vec4 color){
+    float threshold = 0.5;
+    float mean = (color.r + color.g + color.b) / 3.0;
+    color.r = color.g = color.b = mean >= threshold ? 1.0 : 0.0;
+}
+
+//反向
+void reverse(inout vec4 color){
+    color.r = 1.0 - color.r;
+    color.g = 1.0 - color.g;
+    color.b = 1.0 - color.b;
+}
+
+//亮度
+void light(inout vec4 color){
+    vec3 hslColor = vec3(rgb2hsl(color.rgb));
+    hslColor.z += 0.15;
+    color = vec4(hsl2rgb(hslColor), color.a);
+}
+
+void light2(inout vec4 color){
+    color.r += 0.15;
+    color.g += 0.15;
+    color.b += 0.15;
+}
+
+
+//查找表滤镜 不懂就看：https://blog.csdn.net/katherine_qj/article/details/112666379?spm=1001.2101.3001.6650.6&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7ERate-6-112666379-blog-122408204.pc_relevant_multi_platform_whitelistv3&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7ERate-6-112666379-blog-122408204.pc_relevant_multi_platform_whitelistv3&utm_relevant_index=11
+vec4 lookupTable(vec4 color,int flag){
+    // 24.0 == 长宽格子数的平方-1    也等于 图片格式：例如165*165 , 然后cube里size是 33 那么这个就是根号33-1
+    float size = floor(sqrt(float(flag)));
+    float blueColor = color.b *  (size*size - 1.0); // (float(flag)-1.0f); 
+    float sizeBack = 1.0 / size;
+    float allSize = float(flag)*size;
+
+    vec2 quad1;
+    //5.0 == 长宽的色彩格子数 当前为5*5
+    quad1.y = floor(floor(blueColor) / size);
+    quad1.x = floor(blueColor) - (quad1.y * size);
+    vec2 quad2;
+    quad2.y = floor(ceil(blueColor) / size);
+    quad2.x = ceil(blueColor) - (quad2.y * size);
+
+    vec2 texPos1;
+    //0.2 == 1/长宽的色彩格子数 ; 165.0 = LUT图是165*165的
+    texPos1.x = (quad1.x * sizeBack) + 0.5/allSize + ((sizeBack - 1.0/allSize) * color.r);
+    texPos1.y = (quad1.y * sizeBack) + 0.5/allSize + ((sizeBack - 1.0/allSize) * color.g);
+    vec2 texPos2;
+    texPos2.x = (quad2.x * sizeBack) + 0.5/allSize + ((sizeBack - 1.0/allSize) * color.r);
+    texPos2.y = (quad2.y * sizeBack) + 0.5/allSize + ((sizeBack - 1.0/allSize) * color.g);
+    vec4 newColor1 = texture(textureLUT, texPos1);
+    vec4 newColor2 = texture(textureLUT, texPos2);
+    vec4 newColor = mix(newColor1, newColor2, fract(blueColor));
+    return vec4(newColor.rgb, color.w);
+}
+
+
+vec4 lookupTable_tex2D(vec4 color){
+    float blueColor = color.b * (float(lut_size)-1.0f);
+    float sizeBack  = 1.0 / lut_qsz;
+    float allSize   = lut_qsz * lut_size;
+    
+    vec2 quad1;
+    quad1.y = floor(floor(blueColor) / lut_qsz);
+    quad1.x = floor(blueColor) - (quad1.y * lut_qsz);
+    vec2 quad2;
+    quad2.y = floor(ceil(blueColor) / lut_qsz);
+    quad2.x = ceil(blueColor) - (quad2.y * lut_qsz);
+    
+    vec2 texPos1;
+    texPos1.x = (quad1.x * sizeBack) + 0.5 / allSize + ((sizeBack - 1.0 / allSize) * color.r);
+    texPos1.y = (quad1.y * sizeBack) + 0.5 / allSize + ((sizeBack - 1.0 / allSize) * color.g);
+    vec2 texPos2;
+    texPos2.x = (quad2.x * sizeBack) + 0.5 / allSize + ((sizeBack - 1.0 / allSize) * color.r);
+    texPos2.y = (quad2.y * sizeBack) + 0.5 / allSize + ((sizeBack - 1.0 / allSize) * color.g);
+    vec4 newColor1 = texture(tex2DLUT, texPos1);
+    vec4 newColor2 = texture(tex2DLUT, texPos2);
+    vec4 newColor = mix(newColor1, newColor2, fract(blueColor));
+	return newColor;
+}
+
+// 去掉了除法
+vec4 lookupTable_tex2D2(vec4 color){
+    float blueColor = color.b * (float(lut_size)-1.0f);
+
+    vec2 quad1;
+    quad1.y = floor(floor(blueColor) * sizeBackDiv);
+    quad1.x = floor(blueColor) - (quad1.y * lut_qsz);
+    vec2 quad2;
+    quad2.y = floor(ceil(blueColor) * sizeBackDiv);
+    quad2.x = ceil(blueColor) - (quad2.y * lut_qsz);
+    
+    vec2 texPos1;
+    texPos1.x = (quad1.x * sizeBackDiv) + 0.5 * allSizeDiv + ((sizeBackDiv - allSizeDiv) * color.r);
+    texPos1.y = (quad1.y * sizeBackDiv) + 0.5 * allSizeDiv + ((sizeBackDiv - allSizeDiv) * color.g);
+    vec2 texPos2;
+    texPos2.x = (quad2.x * sizeBackDiv) + 0.5 * allSizeDiv + ((sizeBackDiv - allSizeDiv) * color.r);
+    texPos2.y = (quad2.y * sizeBackDiv) + 0.5 * allSizeDiv + ((sizeBackDiv - allSizeDiv) * color.g);
+    vec4 newColor1 = texture(tex2DLUT, texPos1);
+    vec4 newColor2 = texture(tex2DLUT, texPos2);
+    vec4 newColor = mix(newColor1, newColor2, fract(blueColor));
+	return newColor;
+}
+
+// java层调用gles31的API,无法支持texture3D
+//vec4 lookupTable_tex3D(vec4 color){
+//   float delta = 0.5/lut_size;
+//   vec3 texc   = clamp(color.rgb - vec3(delta,delta,delta),0.0,1.0);
+//   vec4 tcolor = texture(tex3DLUT, texc);
+//   return vec4(tcolor.rgb,color.a);
+//}
+
+//色调分离
+void posterization(inout vec4 color){
+    //计算灰度值
+    float grayValue = color.r * 0.3 + color.g * 0.59 + color.b * 0.11;
+    //转换到hsl颜色空间
+    vec3 hslColor = vec3(rgb2hsl(color.rgb));
+    //根据灰度值区分阴影和高光，分别处理
+    if(grayValue < 0.3){
+        //添加蓝色
+        if(hslColor.x < 0.68 || hslColor.x > 0.66){
+            hslColor.x = 0.67;
+        }
+        //增加饱和度
+        hslColor.y += 0.3;
+    }else if(grayValue > 0.7){
+        //添加黄色
+        if(hslColor.x < 0.18 || hslColor.x > 0.16){
+            hslColor.x = 0.17;
+        }
+        //降低饱和度
+        hslColor.y -= 0.3;
+    }
+    color = vec4(hsl2rgb(hslColor), color.a);
+}
+
+void main(){
+    vec4 tmpColor = texture(s_texture, v_texCoord);
+    if (colorFlag == 1){ //灰度
+        grey(tmpColor);
+    } else if (colorFlag == 2){ //黑白
+        blackAndWhite(tmpColor);
+    } else if (colorFlag == 3){ //反向
+        reverse(tmpColor);
+    } else if (colorFlag == 4){ //亮度
+        light(tmpColor);
+    } else if(colorFlag == 5){ // 亮度2
+        light2(tmpColor);
+    } else if(colorFlag == 6){ // lut
+        outColor = lookupTable(tmpColor,sizeFlag);
+        return;
+		
+	}
+    //else if(colorFlag == 9){ // 3DLut by texture3D
+    //    outColor = lookupTable_tex3D(tmpColor);
+    //    return;
+	//} 
+	else if(colorFlag == 11){ // 3DLut by texture2D
+        outColor = lookupTable_tex2D2(tmpColor);
+        return;
+
+    }  else if(colorFlag == 7){//色调分离
+        posterization(tmpColor);
+    }
+
+    outColor = tmpColor;
+}
+
+//将颜色值约束在[0.0-1.0] 之间
+void checkColor(vec4 color){
+    color.r=max(min(color.r, 1.0), 0.0);
+    color.g=max(min(color.g, 1.0), 0.0);
+    color.b=max(min(color.b, 1.0), 0.0);
+    color.a=max(min(color.a, 1.0), 0.0);
+}
